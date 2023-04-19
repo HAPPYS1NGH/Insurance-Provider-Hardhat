@@ -8,14 +8,17 @@ contract CryptoWalletInsuranceFactory {
     address immutable owner;
     address[] customers;
     mapping(address => address) public customerToContract;
-    // mapping(address => bool) paid;
-    mapping(uint8 => uint8) plans;
+    mapping(uint8 => uint8) public plans;
 
     constructor() {
         owner = msg.sender;
         plans[1] = 1;
         plans[2] = 5;
         plans[3] = 10;
+    }
+
+    function getCustomers() public view returns (address[] memory) {
+        return customers;
     }
 
     function getInsurance(
@@ -29,7 +32,7 @@ contract CryptoWalletInsuranceFactory {
         require(_plan != 0, "Invalid Plan");
         require(
             msg.value == (amountInsured * _plan * timePeriod) / 100,
-            "Not send Insurance Anount"
+            "Not send Insurance Amount"
         );
         address insuranceContract = address(
             new CryptoWalletInsurance(
@@ -45,17 +48,20 @@ contract CryptoWalletInsuranceFactory {
         customers.push(msg.sender);
     }
 
+    //Check for reentrancy
     function claimInsurance() public payable {
         require(customerToContract[msg.sender] != address(0));
         CryptoWalletInsurance instance = CryptoWalletInsurance(
             customerToContract[msg.sender]
         );
         uint _claimAmount = instance.getClaimAmount();
-        require(_claimAmount != 0);
-        // paid[msg.sender] = true;
-        require(_claimAmount < address(this).balance);
+        require(_claimAmount != 0, "Claim Amount Should not be 0");
+        require(
+            _claimAmount < address(this).balance,
+            "Not enough Funds in Contract"
+        );
         (bool sent, ) = msg.sender.call{value: _claimAmount}("");
-        require(sent);
+        require(sent, "Transaction was not successsful");
     }
 }
 
@@ -71,7 +77,7 @@ contract CryptoWalletInsurance {
     address private immutable factory;
 
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Only Owner");
         _;
     }
 
@@ -92,8 +98,11 @@ contract CryptoWalletInsurance {
     }
 
     function verifyInsurance() internal onlyOwner {
-        require(contractAddress.balance < amountInsured);
-        require(validity > block.timestamp);
+        require(
+            contractAddress.balance < amountInsured,
+            "There is no change in Balance"
+        );
+        require(validity > block.timestamp, "Oops your Insurance Expired");
         uint hackedAmount = (amountInsured - contractAddress.balance);
         uint maximumClaimableAmmount = (amountInsured * plan) / 10;
         if (hackedAmount < maximumClaimableAmmount) {
@@ -104,12 +113,12 @@ contract CryptoWalletInsurance {
     }
 
     function claim() public onlyOwner {
-        require(!claimed);
+        require(!claimed, "Already Claimed Reward");
         verifyInsurance();
         (bool success, ) = factory.call(
             abi.encodeWithSignature("claimInsurance()")
         );
-        require(success);
+        require(success, "Transaction Failed");
         claimed = true;
     }
 
