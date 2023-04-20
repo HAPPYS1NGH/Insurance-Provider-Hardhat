@@ -20,7 +20,7 @@ async function main() {
 
   const getAmount = await getInsuranceAmount(contractsArray, plan, timePeriod);
 
-  await getInsurance(
+  const insuranceContractAddresses = await getInsurance(
     plan,
     contractsArray,
     timePeriod,
@@ -29,6 +29,20 @@ async function main() {
     getAmount
   );
   console.log("////////////////Insurance Contracts Deployed/////////////////");
+  await getStorageBalance(contractsArray);
+  await withdrawValues(contractsArray);
+  console.log("Values withdrawn");
+  await getStorageBalance(contractsArray);
+  const CryptoWalletInsurance = await hre.ethers.getContractFactory(
+    "CryptoWalletInsurance"
+  );
+  const contract = await CryptoWalletInsurance.attach(
+    insuranceContractAddresses[0]
+  );
+  // console.log(contract.connect(otherAccount));
+
+  await contract.connect(otherAccount).verifyInsurance();
+  console.log(await contract.getClaimAmount());
 }
 
 //Helping Functions
@@ -58,6 +72,20 @@ async function storeValues(contractArray) {
     await contract.store({ value: _value });
   }
 }
+async function withdrawValues(contractArray) {
+  for (let i = 0; i < contractArray.length; i++) {
+    const contract = contractArray[i];
+    let _value = hre.ethers.utils.parseEther((i + 0.5).toString());
+    await contract.withdraw(_value);
+  }
+}
+async function getStorageBalance(contractArray) {
+  for (let i = 0; i < contractArray.length; i++) {
+    const contract = contractArray[i];
+    let _value = await hre.ethers.provider.getBalance(contract.address);
+    console.log("Value of " + i + " is " + _value);
+  }
+}
 
 async function getInsurance(
   plans,
@@ -67,6 +95,7 @@ async function getInsurance(
   accounts,
   getAmount
 ) {
+  const insuranceContractAddresses = [];
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
     const account = accounts[i];
@@ -78,12 +107,18 @@ async function getInsurance(
       .getInsurance(plan, contract.address, timePeriod, {
         value: _value,
       });
+    const insuranceContract = await factoryContract.customerToContract(
+      account.address
+    );
+    insuranceContractAddresses.push(insuranceContract);
+
     console.log("////GET INSURANCE/////");
     console.log(
-      `Insurance Contract deployed for ${contract.address}by ${account.address}`
+      `Insurance Contract deployed for ${contract.address} by ${account.address} and the address of NEW INSURANCE is ${insuranceContract}`
     );
     console.log("/////////");
   }
+  return insuranceContractAddresses;
 }
 
 async function getInsuranceAmount(contractArray, plans, timePeriods) {
@@ -102,11 +137,9 @@ async function getInsuranceAmount(contractArray, plans, timePeriods) {
     const timePeriod = timePeriods[i];
     const amountPayable = (contractBalance * plan * timePeriod) / 100;
     amountPayableArray.push(amountPayable.toString());
-    console.log("///GET INSURANCE AMOUNT/////");
     console.log(
       `Insurance Contract Amount Payable is ${amountPayable} for ${contractArray[i].address}`
     );
-    console.log("///////");
   }
   return amountPayableArray;
 }

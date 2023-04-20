@@ -21,6 +21,12 @@ contract CryptoWalletInsuranceFactory {
         return customers;
     }
 
+    function getCustomerToContract(
+        address customerAddress
+    ) public view returns (address) {
+        return customerToContract[customerAddress];
+    }
+
     function getInsurance(
         uint8 plan,
         address _contractAddress,
@@ -36,7 +42,7 @@ contract CryptoWalletInsuranceFactory {
         );
         address insuranceContract = address(
             new CryptoWalletInsurance(
-                plan,
+                _plan,
                 _contractAddress,
                 msg.sender,
                 amountInsured,
@@ -50,6 +56,8 @@ contract CryptoWalletInsuranceFactory {
 
     //Check for reentrancy
     function claimInsurance() public payable {
+        // console.log("COntract in");
+        // console.log(msg.sender);
         require(customerToContract[msg.sender] != address(0));
         CryptoWalletInsurance instance = CryptoWalletInsurance(
             customerToContract[msg.sender]
@@ -97,14 +105,14 @@ contract CryptoWalletInsurance {
         factory = factoryContract;
     }
 
-    function verifyInsurance() internal onlyOwner {
+    function verifyInsurance() public onlyOwner {
         require(
             contractAddress.balance < amountInsured,
             "There is no change in Balance"
         );
         require(validity > block.timestamp, "Oops your Insurance Expired");
         uint hackedAmount = (amountInsured - contractAddress.balance);
-        uint maximumClaimableAmmount = (amountInsured * plan) / 10;
+        uint maximumClaimableAmmount = (amountInsured * plan) * 10;
         if (hackedAmount < maximumClaimableAmmount) {
             claimAmount = hackedAmount;
         } else {
@@ -115,10 +123,14 @@ contract CryptoWalletInsurance {
     function claim() public onlyOwner {
         require(!claimed, "Already Claimed Reward");
         verifyInsurance();
+
+        console.log("Claim Acount");
+        console.log(claimAmount);
+
         (bool success, ) = factory.call(
             abi.encodeWithSignature("claimInsurance()")
         );
-        require(success, "Transaction Failed");
+        require(success, "Transaction Failed in claim");
         claimed = true;
     }
 
