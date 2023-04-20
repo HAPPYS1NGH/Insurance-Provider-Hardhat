@@ -8,6 +8,7 @@ contract CryptoWalletInsuranceFactory {
     address immutable owner;
     address[] customers;
     mapping(address => address) public customerToContract;
+    mapping(address => address) public contractToCustomer;
     mapping(uint8 => uint8) public plans;
 
     constructor() {
@@ -51,16 +52,19 @@ contract CryptoWalletInsuranceFactory {
             )
         );
         customerToContract[msg.sender] = insuranceContract;
+        contractToCustomer[insuranceContract] = msg.sender;
         customers.push(msg.sender);
     }
 
     //Check for reentrancy
     function claimInsurance() public payable {
-        // console.log("COntract in");
-        // console.log(msg.sender);
-        require(customerToContract[msg.sender] != address(0));
+        console.log("COntract in");
+        console.log(msg.sender);
+        // Great Way to stop anyone to call this function by using mapping of contract=>customer
+        require(contractToCustomer[msg.sender] != address(0));
+
         CryptoWalletInsurance instance = CryptoWalletInsurance(
-            customerToContract[msg.sender]
+            payable(msg.sender)
         );
         uint _claimAmount = instance.getClaimAmount();
         require(_claimAmount != 0, "Claim Amount Should not be 0");
@@ -112,7 +116,7 @@ contract CryptoWalletInsurance {
         );
         require(validity > block.timestamp, "Oops your Insurance Expired");
         uint hackedAmount = (amountInsured - contractAddress.balance);
-        uint maximumClaimableAmmount = (amountInsured * plan) * 10;
+        uint maximumClaimableAmmount = (amountInsured * plan) / 10;
         if (hackedAmount < maximumClaimableAmmount) {
             claimAmount = hackedAmount;
         } else {
@@ -126,6 +130,7 @@ contract CryptoWalletInsurance {
 
         console.log("Claim Acount");
         console.log(claimAmount);
+        console.log(address(this));
 
         (bool success, ) = factory.call(
             abi.encodeWithSignature("claimInsurance()")
@@ -136,5 +141,12 @@ contract CryptoWalletInsurance {
 
     function getClaimAmount() public view returns (uint) {
         return claimAmount;
+    }
+
+    receive() external payable {}
+
+    function withdrawClaim() public payable onlyOwner {
+        (bool success, ) = owner.call{value: address(this).balance}("");
+        require(success, "Failed Transaction");
     }
 }

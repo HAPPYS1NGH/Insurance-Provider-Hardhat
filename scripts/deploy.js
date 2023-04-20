@@ -39,10 +39,13 @@ async function main() {
   const contract = await CryptoWalletInsurance.attach(
     insuranceContractAddresses[0]
   );
-  // console.log(contract.connect(otherAccount));
+  const contractBalance = await hre.ethers.provider.getBalance(
+    cryptoWalletInsuranceFactory.address
+  );
+  const bal = hre.ethers.utils.formatEther(contractBalance.toString());
+  console.log("Contract balance is " + bal);
 
-  await contract.connect(otherAccount).verifyInsurance();
-  console.log(await contract.getClaimAmount());
+  await contract.connect(otherAccount).claim();
 }
 
 //Helping Functions
