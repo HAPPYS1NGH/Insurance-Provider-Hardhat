@@ -7,8 +7,9 @@ async function main() {
   const CryptoWalletInsuranceFactory = await hre.ethers.getContractFactory(
     "CryptoWalletInsuranceFactory"
   );
+  const _value = await hre.ethers.utils.parseEther("10");
   const cryptoWalletInsuranceFactory =
-    await CryptoWalletInsuranceFactory.deploy();
+    await CryptoWalletInsuranceFactory.deploy({ value: _value });
   await cryptoWalletInsuranceFactory.deployed();
 
   console.log(
@@ -33,19 +34,23 @@ async function main() {
   await withdrawValues(contractsArray);
   console.log("Values withdrawn");
   await getStorageBalance(contractsArray);
-  const CryptoWalletInsurance = await hre.ethers.getContractFactory(
-    "CryptoWalletInsurance"
-  );
-  const contract = await CryptoWalletInsurance.attach(
-    insuranceContractAddresses[0]
-  );
+
   const contractBalance = await hre.ethers.provider.getBalance(
     cryptoWalletInsuranceFactory.address
   );
   const bal = hre.ethers.utils.formatEther(contractBalance.toString());
   console.log("Contract balance is " + bal);
-
-  await contract.connect(otherAccount).claim();
+  await claimInsurance(accounts, insuranceContractAddresses);
+}
+async function claimInsurance(accounts, contractArray) {
+  const CryptoWalletInsurance = await hre.ethers.getContractFactory(
+    "CryptoWalletInsurance"
+  );
+  for (let i = 0; i < contractArray.length; i++) {
+    const contract = await CryptoWalletInsurance.attach(contractArray[i]);
+    await contract.connect(accounts[i]).claim();
+    console.log(await hre.ethers.provider.getBalance(contract.address));
+  }
 }
 
 //Helping Functions

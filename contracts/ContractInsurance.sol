@@ -1,5 +1,3 @@
-import "hardhat/console.sol";
-
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.9;
@@ -11,11 +9,21 @@ contract CryptoWalletInsuranceFactory {
     mapping(address => address) public contractToCustomer;
     mapping(uint8 => uint8) public plans;
 
-    constructor() {
+    constructor() payable {
+        require(msg.value >= 1 ether);
         owner = msg.sender;
         plans[1] = 1;
         plans[2] = 5;
         plans[3] = 10;
+    }
+
+    receive() external payable {}
+
+    function withdraw(uint _amount) public payable {
+        require(msg.sender == owner);
+        require(address(this).balance >= _amount);
+        (bool success, ) = msg.sender.call{value: _amount}("");
+        require(success);
     }
 
     function getCustomers() public view returns (address[] memory) {
@@ -56,10 +64,7 @@ contract CryptoWalletInsuranceFactory {
         customers.push(msg.sender);
     }
 
-    //Check for reentrancy
     function claimInsurance() public payable {
-        console.log("COntract in");
-        console.log(msg.sender);
         // Great Way to stop anyone to call this function by using mapping of contract=>customer
         require(contractToCustomer[msg.sender] != address(0));
 
@@ -127,16 +132,11 @@ contract CryptoWalletInsurance {
     function claim() public onlyOwner {
         require(!claimed, "Already Claimed Reward");
         verifyInsurance();
-
-        console.log("Claim Acount");
-        console.log(claimAmount);
-        console.log(address(this));
-
+        claimed = true;
         (bool success, ) = factory.call(
             abi.encodeWithSignature("claimInsurance()")
         );
         require(success, "Transaction Failed in claim");
-        claimed = true;
     }
 
     function getClaimAmount() public view returns (uint) {
