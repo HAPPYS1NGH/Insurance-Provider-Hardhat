@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.9;
+pragma solidity 0.8.18;
 
 contract CryptoWalletInsuranceFactory {
     address immutable owner;
@@ -19,10 +19,10 @@ contract CryptoWalletInsuranceFactory {
 
     receive() external payable {}
 
-    function withdraw(uint _amount) public payable {
+    function withdraw(uint amount) public payable {
         require(msg.sender == owner);
-        require(address(this).balance >= _amount);
-        (bool success, ) = msg.sender.call{value: _amount}("");
+        require(address(this).balance >= amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
         require(success);
     }
 
@@ -38,11 +38,11 @@ contract CryptoWalletInsuranceFactory {
 
     function getInsurance(
         uint8 plan,
-        address _contractAddress,
+        address contractAddress,
         uint timePeriod
     ) public payable {
         require(customerToContract[msg.sender] == address(0));
-        uint256 amountInsured = _contractAddress.balance;
+        uint256 amountInsured = contractAddress.balance;
         uint8 _plan = plans[plan];
         require(_plan != 0, "Invalid Plan");
         require(
@@ -52,7 +52,7 @@ contract CryptoWalletInsuranceFactory {
         address insuranceContract = address(
             new CryptoWalletInsurance(
                 _plan,
-                _contractAddress,
+                contractAddress,
                 msg.sender,
                 amountInsured,
                 timePeriod,
@@ -83,12 +83,12 @@ contract CryptoWalletInsuranceFactory {
 }
 
 contract CryptoWalletInsurance {
-    address public owner;
-    address public contractAddress;
-    uint public plan;
+    address public immutable owner;
+    address public immutable contractAddress;
+    uint public immutable plan;
     bool public claimed;
-    uint public amountInsured;
-    uint public validity;
+    uint public immutable amountInsured;
+    uint public immutable validity;
     uint public claimAmount;
 
     address private immutable factory;
@@ -120,6 +120,7 @@ contract CryptoWalletInsurance {
             "There is no change in Balance"
         );
         require(validity > block.timestamp, "Oops your Insurance Expired");
+        require(!claimed);
         uint hackedAmount = (amountInsured - contractAddress.balance);
         uint maximumClaimableAmmount = (amountInsured * plan) / 10;
         if (hackedAmount < maximumClaimableAmmount) {
