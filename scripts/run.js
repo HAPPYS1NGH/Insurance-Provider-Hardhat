@@ -1,15 +1,13 @@
-const { ethers } = require("hardhat");
-//0x396862a62b9aA611ccAaD03C8A6a8B18CbC7eB47
-require("dotenv").config();
-// const provider = new ethers.providers.JsonRpcProvider(process.env.URL);
 async function main() {
-  const accounts = await ethers.getSigners();
+  const [owner, otherAccount, thirdAccount, fourthAccount, fifthAccount] =
+    await hre.ethers.getSigners();
+  const accounts = [otherAccount, thirdAccount, fourthAccount, fifthAccount];
   const plan = [1, 2, 3, 1];
   const timePeriod = [1, 1, 2, 3];
   const CryptoWalletInsuranceFactory = await hre.ethers.getContractFactory(
     "CryptoWalletInsuranceFactory"
   );
-  const _value = await hre.ethers.utils.parseEther("1");
+  const _value = await hre.ethers.utils.parseEther("10");
   const cryptoWalletInsuranceFactory =
     await CryptoWalletInsuranceFactory.deploy({ value: _value });
   await cryptoWalletInsuranceFactory.deployed();
@@ -18,7 +16,7 @@ async function main() {
     `Factory Contract deployed to ${cryptoWalletInsuranceFactory.address}`
   );
   const contractsArray = await deployStorageContracts(4, accounts);
-  await storeValues(contractsArray, accounts);
+  await storeValues(contractsArray);
   console.log("Values Stored");
 
   const getAmount = await getInsuranceAmount(contractsArray, plan, timePeriod);
@@ -33,24 +31,17 @@ async function main() {
   );
   console.log("////////////////Insurance Contracts Deployed/////////////////");
   await getStorageBalance(contractsArray);
-  await withdrawValues(contractsArray, accounts);
+  await withdrawValues(contractsArray);
   console.log("Values withdrawn");
   await getStorageBalance(contractsArray);
 
-  let contractBalance = await provider.getBalance(
+  const contractBalance = await hre.ethers.provider.getBalance(
     cryptoWalletInsuranceFactory.address
   );
-  let bal = hre.ethers.utils.formatEther(contractBalance.toString());
+  const bal = hre.ethers.utils.formatEther(contractBalance.toString());
   console.log("Contract balance is " + bal);
   await claimInsurance(accounts, insuranceContractAddresses);
-  contractBalance = await provider.getBalance(
-    cryptoWalletInsuranceFactory.address
-  );
-  bal = hre.ethers.utils.formatEther(contractBalance.toString());
-  console.log("Contract balance after claim is " + bal);
 }
-
-//Helping Functions
 async function claimInsurance(accounts, contractArray) {
   const CryptoWalletInsurance = await hre.ethers.getContractFactory(
     "CryptoWalletInsurance"
@@ -58,10 +49,11 @@ async function claimInsurance(accounts, contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = await CryptoWalletInsurance.attach(contractArray[i]);
     await contract.connect(accounts[i]).claim();
-    console.log(await provider.getBalance(contract.address));
+    console.log(await hre.ethers.provider.getBalance(contract.address));
   }
 }
 
+//Helping Functions
 async function deployContract(index, deployer) {
   const Contract = await hre.ethers.getContractFactory("Storage");
   const contract = await Contract.connect(deployer).deploy();
@@ -81,26 +73,24 @@ async function deployStorageContracts(quantity, accounts) {
   }
   return contracts;
 }
-async function storeValues(contractArray, accounts) {
+async function storeValues(contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
-    let _value = await hre.ethers.utils.parseEther(((i + 1) / 10).toString());
-    const tx = await contract.connect(accounts[i]).store({ value: _value });
-    await tx.wait();
+    let _value = hre.ethers.utils.parseEther((i + 1).toString());
+    await contract.store({ value: _value });
   }
 }
-async function withdrawValues(contractArray, accounts) {
+async function withdrawValues(contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
-    let _value = hre.ethers.utils.parseEther(((i + 0.5) / 10).toString());
-    const tx = await contract.connect(accounts[i]).withdraw(_value);
-    await tx.wait();
+    let _value = hre.ethers.utils.parseEther((i + 0.5).toString());
+    await contract.withdraw(_value);
   }
 }
 async function getStorageBalance(contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
-    let _value = await provider.getBalance(contract.address);
+    let _value = await hre.ethers.provider.getBalance(contract.address);
     console.log("Value of " + i + " is " + _value);
   }
 }

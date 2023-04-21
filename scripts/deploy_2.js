@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 //0x396862a62b9aA611ccAaD03C8A6a8B18CbC7eB47
 require("dotenv").config();
-// const provider = new ethers.providers.JsonRpcProvider(process.env.URL);
+const provider = new ethers.providers.JsonRpcProvider(process.env.URL);
 async function main() {
   const accounts = await ethers.getSigners();
   const plan = [1, 2, 3, 1];
@@ -9,34 +9,32 @@ async function main() {
   const CryptoWalletInsuranceFactory = await hre.ethers.getContractFactory(
     "CryptoWalletInsuranceFactory"
   );
-  const _value = await hre.ethers.utils.parseEther("1");
-  const cryptoWalletInsuranceFactory =
-    await CryptoWalletInsuranceFactory.deploy({ value: _value });
-  await cryptoWalletInsuranceFactory.deployed();
 
-  console.log(
-    `Factory Contract deployed to ${cryptoWalletInsuranceFactory.address}`
+  const cryptoWalletInsuranceFactory = CryptoWalletInsuranceFactory.attach(
+    "0x396862a62b9aA611ccAaD03C8A6a8B18CbC7eB47"
   );
-  const contractsArray = await deployStorageContracts(4, accounts);
-  await storeValues(contractsArray, accounts);
-  console.log("Values Stored");
 
-  const getAmount = await getInsuranceAmount(contractsArray, plan, timePeriod);
+  console.log(`Factory Contract is at ${cryptoWalletInsuranceFactory.address}`);
+  const arrayAddress = [
+    "0xE20DB454EE2a59ae0f6F058e2bAF7ed3A6E7323b",
+    "0xe9694a2A5FCB822B42CE57B15C23bBceF609B201",
+    "0x768D728b53a65e9A05f43469FD2F34D62b3BAE2f",
+    "0x12AD3E396E2574bf7ADd2D4253Ab27C94B247C74",
+  ];
+  const contractsArray = await getStorageContracts(arrayAddress);
 
   const insuranceContractAddresses = await getInsurance(
-    plan,
     contractsArray,
-    timePeriod,
     cryptoWalletInsuranceFactory,
-    accounts,
-    getAmount
+    accounts
   );
-  console.log("////////////////Insurance Contracts Deployed/////////////////");
+  //[
+  //   '0x23841F251eECd6ADCEF62F3AFDe1354D879FC2DD',
+  //   '0x925Fa3782cAB3777cA243A872771D56357A8E712',
+  //   '0xF933C26AE22d126fCE401AD88dd86c0A0f6D8656',
+  //   '0x7ab212f4b2F31EE692B620438641fd38A882cc2C'
+  // ]
   await getStorageBalance(contractsArray);
-  await withdrawValues(contractsArray, accounts);
-  console.log("Values withdrawn");
-  await getStorageBalance(contractsArray);
-
   let contractBalance = await provider.getBalance(
     cryptoWalletInsuranceFactory.address
   );
@@ -62,78 +60,50 @@ async function claimInsurance(accounts, contractArray) {
   }
 }
 
-async function deployContract(index, deployer) {
+async function getContract(address) {
   const Contract = await hre.ethers.getContractFactory("Storage");
-  const contract = await Contract.connect(deployer).deploy();
-  await contract.deployed();
-
-  console.log("/////DEPLOY CONTRACT/////");
-  console.log(
-    `Storage ${index} Contract deployed to ${contract.address} by ${deployer.address}`
-  );
-  console.log("//////");
+  const contract = await Contract.attach(address);
+  console.log(`Storage  Contract is  ${contract.address}`);
   return contract;
 }
-async function deployStorageContracts(quantity, accounts) {
+async function getStorageContracts(addresses) {
   const contracts = [];
-  for (let i = 0; i < quantity; i++) {
-    contracts.push(await deployContract(i, accounts[i]));
+  for (let i = 0; i < addresses.length; i++) {
+    console.log(addresses[i]);
+    contracts.push(await getContract(addresses[i]));
   }
   return contracts;
 }
-async function storeValues(contractArray, accounts) {
+async function storeValues(contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
-    let _value = await hre.ethers.utils.parseEther(((i + 1) / 10).toString());
-    const tx = await contract.connect(accounts[i]).store({ value: _value });
-    await tx.wait();
+    let _value = hre.ethers.utils.parseEther(((i + 1) / 10).toString());
+    await contract.store({ value: _value });
   }
 }
-async function withdrawValues(contractArray, accounts) {
-  for (let i = 0; i < contractArray.length; i++) {
-    const contract = contractArray[i];
-    let _value = hre.ethers.utils.parseEther(((i + 0.5) / 10).toString());
-    const tx = await contract.connect(accounts[i]).withdraw(_value);
-    await tx.wait();
-  }
-}
+// async function withdrawValues(contract, account) {
+//     let _value = await hre.ethers.utils.parseEther("0.15");
+//     await contract.connect(account).withdraw(_value);
+// }
 async function getStorageBalance(contractArray) {
   for (let i = 0; i < contractArray.length; i++) {
     const contract = contractArray[i];
     let _value = await provider.getBalance(contract.address);
-    console.log("Value of " + i + " is " + _value);
+    console.log("Value of Storage " + i + " is " + _value);
   }
 }
 
-async function getInsurance(
-  plans,
-  contractArray,
-  timePeriods,
-  factoryContract,
-  accounts,
-  getAmount
-) {
+async function getInsurance(contractArray, factoryContract, accounts) {
   const insuranceContractAddresses = [];
   for (let i = 0; i < contractArray.length; i++) {
-    const contract = contractArray[i];
     const account = accounts[i];
-    const plan = plans[i];
-    const timePeriod = timePeriods[i];
-    const _value = getAmount[i];
-    await factoryContract
-      .connect(account)
-      .getInsurance(plan, contract.address, timePeriod, {
-        value: _value,
-      });
     const insuranceContract = await factoryContract.customerToContract(
       account.address
     );
     insuranceContractAddresses.push(insuranceContract);
 
     console.log("////GET INSURANCE/////");
-    console.log(
-      `Insurance Contract deployed for ${contract.address} by ${account.address} and the address of NEW INSURANCE is ${insuranceContract}`
-    );
+    console.log(`The address of NEW INSURANCE is ${insuranceContract}`);
     console.log("/////////");
   }
   return insuranceContractAddresses;
@@ -154,6 +124,7 @@ async function getInsuranceAmount(contractArray, plans, timePeriods) {
     }
     const timePeriod = timePeriods[i];
     const amountPayable = (contractBalance * plan * timePeriod) / 100;
+
     amountPayableArray.push(amountPayable.toString());
     console.log(
       `Insurance Contract Amount Payable is ${amountPayable} for ${contractArray[i].address}`
