@@ -19,10 +19,10 @@ contract CryptoWalletInsuranceFactory {
 
     receive() external payable {}
 
-    function withdraw(uint amount) public payable {
+    function withdraw(uint256 amount) public payable {
         require(msg.sender == owner);
         require(address(this).balance >= amount);
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success);
     }
 
@@ -30,25 +30,16 @@ contract CryptoWalletInsuranceFactory {
         return customers;
     }
 
-    function getCustomerToContract(
-        address customerAddress
-    ) public view returns (address) {
+    function getCustomerToContract(address customerAddress) public view returns (address) {
         return customerToContract[customerAddress];
     }
 
-    function getInsurance(
-        uint8 plan,
-        address contractAddress,
-        uint timePeriod
-    ) public payable {
+    function getInsurance(uint8 plan, address contractAddress, uint256 timePeriod) public payable {
         require(customerToContract[msg.sender] == address(0));
         uint256 amountInsured = contractAddress.balance;
         uint8 _plan = plans[plan];
         require(_plan != 0, "Invalid Plan");
-        require(
-            msg.value == (amountInsured * _plan * timePeriod) / 100,
-            "Not send Insurance Amount"
-        );
+        require(msg.value == (amountInsured * _plan * timePeriod) / 100, "Not send Insurance Amount");
         address insuranceContract = address(
             new CryptoWalletInsurance(
                 _plan,
@@ -68,16 +59,11 @@ contract CryptoWalletInsuranceFactory {
         // Great Way to stop anyone to call this function by using mapping of contract=>customer
         require(contractToCustomer[msg.sender] != address(0));
 
-        CryptoWalletInsurance instance = CryptoWalletInsurance(
-            payable(msg.sender)
-        );
-        uint _claimAmount = instance.getClaimAmount();
+        CryptoWalletInsurance instance = CryptoWalletInsurance(payable(msg.sender));
+        uint256 _claimAmount = instance.getClaimAmount();
         require(_claimAmount != 0, "Claim Amount Should not be 0");
-        require(
-            _claimAmount < address(this).balance,
-            "Not enough Funds in Contract"
-        );
-        (bool sent, ) = msg.sender.call{value: _claimAmount}("");
+        require(_claimAmount < address(this).balance, "Not enough Funds in Contract");
+        (bool sent,) = msg.sender.call{value: _claimAmount}("");
         require(sent, "Transaction was not successsful");
     }
 }
@@ -85,11 +71,11 @@ contract CryptoWalletInsuranceFactory {
 contract CryptoWalletInsurance {
     address public immutable owner;
     address public immutable contractAddress;
-    uint public immutable plan;
+    uint256 public immutable plan;
     bool public claimed;
-    uint public immutable amountInsured;
-    uint public immutable validity;
-    uint public claimAmount;
+    uint256 public immutable amountInsured;
+    uint256 public immutable validity;
+    uint256 public claimAmount;
 
     address private immutable factory;
 
@@ -99,11 +85,11 @@ contract CryptoWalletInsurance {
     }
 
     constructor(
-        uint _plan,
+        uint256 _plan,
         address _contractAddress,
         address _owner,
-        uint _amountInsured,
-        uint _validity,
+        uint256 _amountInsured,
+        uint256 _validity,
         address factoryContract
     ) {
         plan = _plan;
@@ -114,15 +100,12 @@ contract CryptoWalletInsurance {
         factory = factoryContract;
     }
 
-    function verifyInsurance() public onlyOwner {
-        require(
-            contractAddress.balance < amountInsured,
-            "There is no change in Balance"
-        );
+    function verifyInsurance() internal onlyOwner {
+        require(contractAddress.balance < amountInsured, "There is no change in Balance");
         require(validity > block.timestamp, "Oops your Insurance Expired");
         require(!claimed);
-        uint hackedAmount = (amountInsured - contractAddress.balance);
-        uint maximumClaimableAmmount = (amountInsured * plan) / 10;
+        uint256 hackedAmount = (amountInsured - contractAddress.balance);
+        uint256 maximumClaimableAmmount = (amountInsured * plan) / 10;
         if (hackedAmount < maximumClaimableAmmount) {
             claimAmount = hackedAmount;
         } else {
@@ -134,20 +117,18 @@ contract CryptoWalletInsurance {
         require(!claimed, "Already Claimed Reward");
         verifyInsurance();
         claimed = true;
-        (bool success, ) = factory.call(
-            abi.encodeWithSignature("claimInsurance()")
-        );
+        (bool success,) = factory.call(abi.encodeWithSignature("claimInsurance()"));
         require(success, "Transaction Failed in claim");
     }
 
-    function getClaimAmount() public view returns (uint) {
+    function getClaimAmount() public view returns (uint256) {
         return claimAmount;
     }
 
     receive() external payable {}
 
     function withdrawClaim() public payable onlyOwner {
-        (bool success, ) = owner.call{value: address(this).balance}("");
+        (bool success,) = owner.call{value: address(this).balance}("");
         require(success, "Failed Transaction");
     }
 }
